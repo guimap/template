@@ -1,0 +1,117 @@
+box:
+  id: $GCR_HOST/$GCR_PROJECT_ID/node
+  username: _json_key
+  password: $GCP_KEY_JSON
+  registry: https://$GCR_HOST
+  tag: fermium
+
+build:
+  steps:
+    - script:
+      name: echo nodejs information
+      code: |
+        echo "node version $(node -v) running"
+        echo "npm version $(npm -v) running"
+        npm cache clean --force
+
+    - npm-install
+
+    - script:
+      name: generate build folder
+      code: npm run build
+
+    - script:
+      name: generate image tag
+      code: |
+        export GIT_COMMIT=$(git rev-parse --short HEAD)
+        echo "GIT_COMMI: $GIT_COMMIT"
+
+        export PACKAGE_VERSION=$(node -p "require('./package.json').version")
+        echo "PACKAGE_VERSION: $PACKAGE_VERSION"
+
+        if [ "$WERCKER_GIT_BRANCH" == "master" ]; then
+          export IMAGE_TAG=$PACKAGE_VERSION
+
+        elif [[ "$WERCKER_GIT_BRANCH" =~ ^release.* ]]; then
+          export IMAGE_TAG="$PACKAGE_VERSION-beta-$GIT_COMMIT"
+
+        else
+          export IMAGE_TAG="$PACKAGE_VERSION-alpha-$GIT_COMMIT"
+
+        fi
+
+        echo "$IMAGE_TAG" >> $WERCKER_SOURCE_DIR/.image_tag
+        echo "IMAGE_TAG: $IMAGE_TAG"
+
+test:
+  steps:
+    - script:
+      code: npm run lint
+
+    - npm-test
+
+generate-gce-json:
+  steps:
+    - script:
+      name: create-json-file
+      code: |
+        echo 'Criando arquivo de configurações do Google Cloud'
+        if [[ ! -z $GCE_AUTH_JSON ]]; then
+          echo 'Credenciais existem'
+          echo "Arquivo $GCE_AUTH_JSON_FILENAME será escrito em $WERCKER_SOURCE_DIR"
+          echo $GCE_AUTH_JSON > "$WERCKER_SOURCE_DIR/$GCE_AUTH_JSON_FILENAME"
+        else
+          echo 'Nenhuma variável de ambiente GCE_AUTH_JSON existe'
+        fi
+    - script:
+      name: list-files
+      code: ls -lh $WERCKER_SOURCE_DIR
+
+
+docker-push:
+  steps:
+    - script:
+      code: |
+        echo 'Executando push para o registry!'
+
+        export IMAGE_TAG=$(cat $WERCKER_SOURCE_DIR/.image_tag)
+        echo "imagem $REPOSITORY_NAME:$IMAGE_TAG"
+
+    - internal/docker-push:
+        username: _json_key
+        password: $GCP_KEY_JSON
+        repository: $GCR_HOST/$GCR_PROJECT_ID/$REPOSITORY_NAME:$IMAGE_TAG
+        registry: https://$GCR_HOST/v2
+        tag: $IMAGE_TAG
+        working-dir: $WERCKER_SOURCE_DIR/dist
+        entrypoint: npm start
+
+
+deploy:
+  steps:
+    - script:
+      code: |
+        export IMAGE_TAG=$(cat $WERCKER_SOURCE_DIR/.image_tag)
+
+        echo 'Executando apply do Kubernetes!'
+        echo "imagem $REPOSITORY_NAME:$IMAGE_TAG"
+
+        mv $WERCKER_SOURCE_DIR/kub/kub_*.template $WERCKER_SOURCE_DIR
+
+    - bash-template
+
+    - script:
+      code: |
+        echo 'Movimentando templates'
+        mv $WERCKER_SOURCE_DIR/kub_*.* $WERCKER_SOURCE_DIR/kub
+
+        echo 'Criando config do Kubernetes'
+        mkdir $HOME/.kube/ && echo -e "$KUB_CONFIG" >> $HOME/.kube/config
+
+    - kubectl:
+        server: $GCE_KUBERNETES_MASTER
+        gcloud-key-json: $GCP_KEY_JSON
+        gke-cluster-name: $GCE_CLUSTER_NAME
+        gke-cluster-zone: $GCE_CLUSTER_ZONE
+        gke-cluster-project: $GCE_CLUSTER_PROJECT
+        command: apply -f $WERCKER_SOURCE_DIR/kub/

@@ -1,0 +1,13 @@
+apiVersion: autoscaling/v1
+kind: HorizontalPodAutoscaler
+metadata:
+  name: ${KUB_SERVICE}-hpa
+  namespace: apis
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1beta1
+    kind: Deployment
+    name: ${KUB_SERVICE}
+  minReplicas: ${HPA_MIN_PODS}
+  maxReplicas: ${HPA_MAX_PODS}
+  targetCPUUtilizationPercentage: 60

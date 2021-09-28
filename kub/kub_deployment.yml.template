@@ -1,0 +1,87 @@
+# This template file will have its environment variables expanded
+# and the .template extension removed by the bash-template Wercker step.
+# See wercker.yml.
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ${KUB_SERVICE}
+  namespace: ${NODE_ENV}
+  labels:
+    app: ${KUB_SERVICE}
+    type: api
+    version: ${IMAGE_TAG}
+    commit: ${WERCKER_GIT_COMMIT}
+spec:
+  replicas: 1
+  minReadySeconds: 10
+  strategy:
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+    type: RollingUpdate
+  selector:
+    matchLabels:
+      app: ${KUB_SERVICE}
+  template:
+    metadata:
+      name: ${KUB_SERVICE}
+      labels:
+        app: ${KUB_SERVICE}
+        version: ${IMAGE_TAG}
+        commit: ${WERCKER_GIT_COMMIT}
+      annotations:
+        linkerd.io/inject: enabled
+    spec:
+      imagePullSecrets:
+        - name: gcr-json-key
+      containers:
+      - name: ${KUB_SERVICE}-srv
+        image: ${GCR_HOST}/${GCR_PROJECT_ID}/${REPOSITORY_NAME}:${IMAGE_TAG}
+        env:
+        - name: MY_POD_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.name
+        - name: PORT
+          value: "${PORT}"
+        - name: NODE_ENV
+          value: "${NODE_ENV}"
+        - name: AUTH0_SQUIDHUB_CLIENT_SECRET
+          value: "${AUTH0_SQUIDHUB_CLIENT_SECRET}"
+        - name: AUTH0_SQUIDHUB_CLIENT_ID
+          value: "${AUTH0_SQUIDHUB_CLIENT_ID}"
+        - name: AUTH0_SQUID_ADM_CLIENT_ID
+          value: "${AUTH0_SQUID_ADM_CLIENT_ID}"
+        - name: AUTH0_SQUID_ADM_CLIENT_SECRET
+          value: "${AUTH0_SQUID_ADM_CLIENT_SECRET}"
+        - name: SQUID_API_TOKEN
+          value: "${SQUID_API_TOKEN}"
+        - name: ELASTIC_LOG_URL
+          value: "${ELASTIC_LOG_URL}"
+        - name: ELASTIC_LOG_PASSWORD
+          value: "${ELASTIC_LOG_PASSWORD}"
+        - name: ELASTIC_LOG_USER
+          value: "${ELASTIC_LOG_USER}"
+        - name: ELASTIC_APM_ACTIVE
+          value: "${ELASTIC_APM_ACTIVE}"
+        - name: ELASTIC_APM_CAPTURE_BODY
+          value: "${ELASTIC_APM_CAPTURE_BODY}"
+        - name: ELASTIC_APM_ERROR_MESSAGE_MAX_LENGTH
+          value: "${ELASTIC_APM_ERROR_MESSAGE_MAX_LENGTH}"
+        - name: ELASTIC_APM_API_REQUEST_SIZE
+          value: "${ELASTIC_APM_API_REQUEST_SIZE}"
+        - name: ELASTIC_APM_CAPTURE_HEADERS
+          value: "${ELASTIC_APM_CAPTURE_HEADERS}"
+        - name: ELASTIC_APM_FILTER_HTTP_HEADERS
+          value: "${ELASTIC_APM_FILTER_HTTP_HEADERS}"
+        - name: ELASTIC_SANITIZE_FIELD_NAMES
+          value: "${ELASTIC_SANITIZE_FIELD_NAMES}"
+        - name: EAPM_SERVER_URL
+          value: "${EAPM_SERVER_URL}"
+        - name: EAPM_SECRET_TOKEN
+          value: "${EAPM_SECRET_TOKEN}"
+        ports:
+          - name: ${KUB_SERVICE}-srv
+            containerPort: ${CONTAINER_PORT}
+            protocol: TCP

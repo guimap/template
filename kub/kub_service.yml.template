@@ -1,0 +1,24 @@
+# This template file will have its environment variables expanded
+# and the .template extension removed by the bash-template Wercker step.
+# See wercker.yml.
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: ${KUB_SERVICE}
+  namespace: apis
+  labels:
+    app: ${KUB_SERVICE}
+    version: ${IMAGE_TAG}
+    commit: ${WERCKER_GIT_COMMIT}
+spec:
+  type: NodePort
+  ports:
+  - port: ${KUB_SERVICE_PORT}
+    targetPort: ${CONTAINER_PORT}
+    protocol: TCP
+    name: http
+  selector:
+    app: ${KUB_SERVICE}
+    version: ${IMAGE_TAG}
+    commit: ${WERCKER_GIT_COMMIT}

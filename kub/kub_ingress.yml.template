@@ -1,0 +1,19 @@
+apiVersion: extensions/v1beta1
+kind: Ingress
+metadata:
+  name: ${KUB_SERVICE}
+  namespace: apis
+  annotations:
+    kubernetes.io/ingress.class: "nginx"
+spec:
+  tls:
+    - secretName: tls-secret
+    - hosts:
+      - ${INGRESS_DOMAIN}
+  rules:
+  - host: ${INGRESS_DOMAIN}
+    http:
+      paths:
+      - backend:
+          serviceName: ${KUB_SERVICE}
+          servicePort: ${KUB_SERVICE_PORT}
